@@ -19,123 +19,6 @@ This is the code repository for a series of articles on the
 12. [A Global Optimization and Dataflow Analysis](https://jeremykun.com/2023/11/15/mlir-a-global-optimization-and-dataflow-analysis/)
 12. [Defining Patterns with PDLL](https://www.jeremykun.com/2024/08/04/mlir-pdll/)
 
-## Bazel build
-
-Bazel is one of two supported build systems for this tutorial. The other is
-CMake. If you're unfamiliar with Bazel, you can read the tutorials at
-[https://bazel.build/start](https://bazel.build/start). Familiarity with Bazel
-is not required to build or test, but it is required to follow the articles in
-the tutorial series and explained in the first article,
-[Build System (Getting Started)](https://jeremykun.com/2023/08/10/mlir-getting-started/).
-The CMake build is maintained, but was added at article 10 (Dialect Conversion)
-and will not be explained in the articles.
-
-**Note**: This project has been upgraded to Bazel 8.3.1 and migrated to use 
-Bzlmod for dependency management, replacing the traditional WORKSPACE file 
-approach. Dependencies are now managed through `MODULE.bazel` using the 
-Bazel Central Registry (BCR) where possible.
-
-### Prerequisites
-
-Install Bazelisk via instructions at
-[https://github.com/bazelbuild/bazelisk#installation](https://github.com/bazelbuild/bazelisk#installation).
-This should create the `bazel` command on your system.
-
-You should also have a modern C++ compiler on your system, either `gcc` or
-`clang`, which Bazel will detect.
-
-**Bazel Version**: This project requires Bazel 8.3.1 or newer. The specific
-version is pinned in `.bazelversion`.
-
-### Build and test
-
-Run
-
-```bash
-bazel build ...:all
-bazel test ...:all
-```
-
-### Dependency Management
-
-The project uses Bzlmod (MODULE.bazel) for dependency management:
-
-- **Core dependencies**: Managed through Bazel Central Registry (BCR)
-  - rules_python, rules_java, protobuf, abseil-cpp, or-tools, etc.
-- **LLVM dependencies**: Managed through custom module extension
-  - LLVM/MLIR source code via git repository
-- **Development tools**: hedron_compile_commands via git_override
-
-This approach provides better dependency resolution, versioning, and 
-compatibility compared to the legacy WORKSPACE approach.
-
-## CMake build
-
-CMake is one of two supported build systems for this tutorial. The other is
-Bazel. If you're unfamiliar with CMake, you can read the tutorials at
-[https://cmake.org/getting-started/](https://cmake.org/getting-started/). The
-CMake build is maintained, but was added at article 10 (Dialect Conversion) and
-will not be explained in the articles.
-
-### Prerequisites
-
-*   Make sure you have installed everything needed to build LLVM
-    https://llvm.org/docs/GettingStarted.html#software
-*   For this recipe Ninja is used so be sure to have it as well installed
-    https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages
-
-### Checking out the code
-
-Checkout the tutorial including the LLVM dependency (submodules):
-
-```bash
-git clone --recurse-submodules https://github.com/j2kun/mlir-tutorial.git
-cd mlir-tutorial
-```
-
-### Building dependencies
-
-Note: The following steps are suitable for macOs and use ninja as building
-system, they should not be hard to adapt for your environment.
-
-*Build LLVM/MLIR*
-
-```bash
-#!/bin/sh
-
-BUILD_SYSTEM=Ninja
-BUILD_TAG=ninja
-THIRDPARTY_LLVM_DIR=$PWD/externals/llvm-project
-BUILD_DIR=$THIRDPARTY_LLVM_DIR/build
-INSTALL_DIR=$THIRDPARTY_LLVM_DIR/install
-
-mkdir -p $BUILD_DIR
-mkdir -p $INSTALL_DIR
-
-pushd $BUILD_DIR
-
-cmake ../llvm -G $BUILD_SYSTEM \
-      -DCMAKE_CXX_COMPILER="$(xcrun --find clang++)" \
-      -DCMAKE_C_COMPILER="$(xcrun --find clang)" \
-      -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR \
-      -DLLVM_LOCAL_RPATH=$INSTALL_DIR/lib \
-      -DLLVM_PARALLEL_COMPILE_JOBS=7 \
-      -DLLVM_PARALLEL_LINK_JOBS=1 \
-      -DLLVM_BUILD_EXAMPLES=OFF \
-      -DLLVM_INSTALL_UTILS=ON \
-      -DCMAKE_OSX_ARCHITECTURES="$(uname -m)" \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DLLVM_ENABLE_ASSERTIONS=ON \
-      -DLLVM_CCACHE_BUILD=ON \
-      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-      -DLLVM_ENABLE_PROJECTS='mlir' \
-      -DDEFAULT_SYSROOT="$(xcrun --show-sdk-path)" \
-      -DCMAKE_OSX_SYSROOT="$(xcrun --show-sdk-path)"
-
-cmake --build . --target check-mlir
-
-popd
-```
 
 ### Build and test
 
@@ -157,15 +40,11 @@ cmake -G $BUILD_SYSTEM .. \
     -DBUILD_DEPS="ON" \
     -DBUILD_SHARED_LIBS="OFF" \
     -DCMAKE_BUILD_TYPE=Debug \
-    -DCMAKE_INSTALL_PREFIX=/home/sashwat/mlir-custom-built
+    -DCMAKE_INSTALL_PREFIX=/home/sashwat/mlir-custom-built \
+    -DLLVM_INCLUDE_DIRS=/home/sashwat/llvm-mlir-pgeist/include/llvm \
+    -DMLIR_INCLUDE_DIRS=/home/sashwat/llvm-mlir-pgeist/include/mlir
 
 popd
 
-cmake --build $BUILD_DIR --target MLIRAffineFullUnrollPasses
-cmake --build $BUILD_DIR --target MLIRMulToAddPasses
-cmake --build $BUILD_DIR --target MLIRNoisyPasses
-cmake --build $BUILD_DIR --target mlir-headers
-cmake --build $BUILD_DIR --target mlir-doc
 cmake --build $BUILD_DIR --target tutorial-opt
-cmake --build $BUILD_DIR --target check-mlir-tutorial
 ```
