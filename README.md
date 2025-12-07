@@ -157,7 +157,7 @@ cmake -G $BUILD_SYSTEM .. \
     -DBUILD_DEPS="ON" \
     -DBUILD_SHARED_LIBS="OFF" \
     -DCMAKE_BUILD_TYPE=Debug \
-    -DCMKAE_INSTALL_PREFIX=/home/sashwat/mlir-custom-built
+    -DCMAKE_INSTALL_PREFIX=/home/sashwat/mlir-custom-built
 
 popd
 
