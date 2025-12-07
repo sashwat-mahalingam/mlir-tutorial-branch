@@ -1,6 +1,8 @@
 # Nested build directory
 /build*
-
+*.mlir
+*.ll
+*.o
 # Visual Studio built-in CMake configuration
 .vscode*
 /CMakeSettings.json
