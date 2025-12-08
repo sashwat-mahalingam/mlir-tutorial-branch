@@ -1,8 +1,8 @@
 #include <stdio.h>
 
 #define M 1024
-#define N 64
-#define P 512
+#define N 1024
+#define P 1024
 float A[M][N];
 float B[N][P];
 float C[M][P];

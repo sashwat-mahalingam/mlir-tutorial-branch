@@ -20,6 +20,7 @@
 #include "mlir/Dialect/Affine/Passes.h"  // for createAffineLoopConvertPass
 #include "lib/Transform/Affine/Passes.h.inc"
 #include "lib/Transform/Affine/RaiseToAffine.h"
+#include <set>
 
 
 namespace mlir {
@@ -29,12 +30,17 @@ namespace polyTiling {
 #include "lib/Transform/Affine/Passes.h.inc"
 
 using mlir::affine::AffineForOp;
+using mlir::affine::AffineLoadOp;
+using mlir::affine::AffineStoreOp;
+using mlir::ValueRange;
 
 
 /// Extract coefficient of IV `ivIndex` in affine expression `expr`.
-static int64_t getCoeff(AffineExpr expr, unsigned ivIndex) {
+static int64_t getCoeff(AffineExpr expr, Value ivIndex, ValueRange mapOperands) {
   if (auto dim = expr.dyn_cast<AffineDimExpr>()) {
-    if (dim.getPosition() == ivIndex) return 1;
+    unsigned pos = dim.getPosition();
+    Value operand = mapOperands[pos];
+    if (operand == ivIndex) return 1;
     return 0;
   }
   if (auto c = expr.dyn_cast<AffineConstantExpr>()) {
@@ -44,8 +50,8 @@ static int64_t getCoeff(AffineExpr expr, unsigned ivIndex) {
     return 0;
   }
   if (auto bin = expr.dyn_cast<AffineBinaryOpExpr>()) {
-    int64_t l = getCoeff(bin.getLHS(), ivIndex);
-    int64_t r = getCoeff(bin.getRHS(), ivIndex);
+    int64_t l = getCoeff(bin.getLHS(), ivIndex, mapOperands);
+    int64_t r = getCoeff(bin.getRHS(), ivIndex, mapOperands);
     if (bin.getKind() == AffineExprKind::Add)
       return l + r;
     if (bin.getKind() == AffineExprKind::Mul) {
@@ -89,6 +95,11 @@ static void analyzeAffineBand(ArrayRef<AffineForOp> loopBand) {
   // Walk operations in the innermost loop (conservative: everything in its region)
   AffineForOp innermost = loopBand.back();
 
+  // maintain a set of the memref values that have been seen
+  //std::set<Value> memrefValues;
+  //std::vector<std::vector<double>> memoryFootprintPolynomialTerms; // M x N matrix, N = number of loop IVs.
+  // [[a1, a2, a3...], [b1, b2, b3...]...] ==> footprint = (a1 * t1 * a2 * t2 * a3 * t3 ... * aN * tN) + (b1 * t1 * b2 * t2 * b3 * t3 ... * bN * tN) + ...  
+  
   // print innermost size
 
   innermost.walk([&](Operation *op) {
@@ -96,8 +107,8 @@ static void analyzeAffineBand(ArrayRef<AffineForOp> loopBand) {
     if (!isa<affine::AffineLoadOp>(op) &&
         !isa<affine::AffineStoreOp>(op)) {
           llvm::errs() << "  op: " << op->getName() << "\n";
-          return;
-        }
+          return; //WalkResult::advance();
+    }
 
     // print that we have an affine load or store
     llvm::errs() << "  Affine load or store\n";
@@ -120,28 +131,50 @@ static void analyzeAffineBand(ArrayRef<AffineForOp> loopBand) {
         ? loadOp.getAffineMap()
         : storeOp.getAffineMap();
     
-    Value memRef = loadOp ? loadOp.getOperand(loadOp.getMemRefOperandIndex()) : storeOp.getOperand(storeOp.getMemRefOperandIndex());
-    llvm::errs() << "  MemRef: " << memRef << "\n";
-    unsigned numIdx = map.getNumResults();
+    //Value memRef = loadOp ? loadOp.getOperand(loadOp.getMemRefOperandIndex()) : storeOp.getOperand(storeOp.getMemRefOperandIndex());
 
+    //bool trackNewMemory = true;
+
+    // if (memrefValues.find(memRef) == memrefValues.end()) {
+    //   memrefValues.insert(memRef);
+    // } else {
+    //   trackNewMemory = false;
+    // }
+
+    //llvm::errs() << "  MemRef: " << memRef << "\n";
+    unsigned numIdx = map.getNumResults();
+    ValueRange mapOperands = ValueRange();
+    AffineLoadOp loadOpCast;
+    AffineStoreOp storeOpCast;
+    if ((bool) loadOp) {
+      // autocast Operation to AffineLoadOp
+      loadOpCast = dyn_cast<affine::AffineLoadOp>(op);
+      mapOperands = loadOpCast.getMapOperands();
+    } else {
+      // autocast Operation to AffineStoreOp
+      storeOpCast = dyn_cast<affine::AffineStoreOp>(op);
+      mapOperands = storeOpCast.getMapOperands();
+    }
   
     // For each loop IV in the band
     for (unsigned k = 0; k < n; ++k) {
       int64_t Lk = 0;
       for (unsigned d = 0; d < numIdx; ++d) {
         AffineExpr expr = map.getResult(d);
-        int64_t coeff = getCoeff(expr, k);
+        int64_t coeff = getCoeff(expr, ivs[k], mapOperands);
         Lk += coeff * strides[d];
       }
   
       if (Lk == 0)
         raw[k] += 1.0;          // temporal reuse
-      else if (std::abs(Lk) == 1)
-        raw[k] += 1.0;          // spatial stride-1 reuse
+      // else if (std::abs(Lk) == 1)
+      //   raw[k] += 1.0;          // spatial stride-1 reuse
   
-      if (isStore)
-        raw[k] += 1.0;          // store bonus
+      // if (isStore)
+      //   raw[k] += 1.0;          // store bonus
     }
+
+    //return WalkResult::advance();
   }); // end walk
 
   // Normalize raw -> gamma (largest dimension becomes 1.0)
