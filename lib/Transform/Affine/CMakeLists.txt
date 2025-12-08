@@ -1,6 +1,7 @@
 add_mlir_library(Project583Passes
     RaiseToAffine.cpp
     PreTileAnalysis.cpp
+    TileSizeSelection.cpp
 
     ${PROJECT_SOURCE_DIR}/lib/Transform/Affine/
     ADDITIONAL_HEADER_DIRS

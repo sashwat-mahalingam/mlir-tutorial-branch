@@ -3,6 +3,7 @@
 
 #include "lib/Transform/Affine/PreTileAnalysis.h"
 #include "lib/Transform/Affine/RaiseToAffine.h" // <-- add this
+#include "lib/Transform/Affine/TileSizeSelection.h"
 
 namespace mlir {
 namespace polyTiling {

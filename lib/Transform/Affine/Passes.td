@@ -19,4 +19,11 @@ def RaiseToAffine : Pass<"raise-to-affine"> {
   let dependentDialects = ["mlir::affine::AffineDialect", "mlir::func::FuncDialect", "mlir::memref::MemRefDialect"];
 }
 
+def TileSizeSelection : Pass<"tile-size-selection"> {
+
+  let summary = "select tile sizes at multi cache levels";
+  let description = [{select tile sizes at multi cache levels.}];
+  let dependentDialects = ["mlir::affine::AffineDialect", "mlir::func::FuncDialect", "mlir::memref::MemRefDialect"];
+}
+
 #endif  // LIB_TRANSFORM_AFFINE_PASSES_TD_
