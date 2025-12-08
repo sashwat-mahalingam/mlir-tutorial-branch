@@ -20,19 +20,6 @@ struct AffineFullUnroll : impl::AffineFullUnrollBase<AffineFullUnroll> {
   void runOnOperation() {
     int nestId = 0;
     int loop_count = 0;
-    // Hard coding number of multi-cache levels to 3 for now 
-    int numLevels = 3;
-    // Hard code cache sizes for L1, L2, L3 cache
-    std::vector<uint64_t> cacheBytes = {
-                  8ULL*1024*1024,    // L3: 8MB  
-                  1ULL*1024*1024,    // L2: 1MB
-                  128ULL*1024};      // L1: 128KB
-    uint64_t elemBytes = 4; 
-
-    std::vector<double> cacheElems(numLevels);
-    for (size_t lvl = 0; lvl < numLevels; ++lvl) {
-      cacheElems[lvl] = (double)cacheBytes[lvl] / (double)elemBytes;
-    }
 
     getOperation()->walk([&](AffineForOp op) {
 
@@ -48,52 +35,6 @@ struct AffineFullUnroll : impl::AffineFullUnrollBase<AffineFullUnroll> {
         llvm::errs() << "Nest #" << ++nestId << ":\n";
         analyzeLoopPermutability(loopBand);
       }
-
-      
-      // tile size selection
-      SmallVector<AffineForOp, 8> origBand;
-      getPerfectlyNestedLoops(origBand, op);
-      
-      if (origBand.size() < 2) return;  // Need at least 2D for tiling
-      
-      size_t n = origBand.size();
-      
-      // Compute dimensional reuse γ once for this n-D band
-      SmallVector<double, 8> gamma = computeDimensionalReuse(origBand);
-      
-      // Current innermost band starts as original band
-      SmallVector<AffineForOp, 8> currentBand = origBand;
-      
-      // Apply tiling for each cache level, from outermost to innermost
-      for (size_t lvl = 0; lvl < numLevels; ++lvl) {
-        // Solve n-D model for this cache level
-        SmallVector<unsigned, 8> tileSizes =
-            solveTileSizesND(gamma, cacheElems[lvl]);
-
-        llvm::errs() << "Cache level " << lvl << " tile sizes: ";
-        for (unsigned ts : tileSizes) {
-          llvm::errs() << ts << " ";
-        }
-        llvm::errs() << "\n";
-        
-        // Ensure tile sizes match band dimensionality
-        tileSizes.resize(n, 32);  // pad with defaults if needed
-        
-        // Apply tiling to current innermost band
-        SmallVector<AffineForOp, 8> newBand;
-        if (failed(tilePerfectlyNested(currentBand, tileSizes, &newBand))) {
-          llvm::errs() << "Tiling for cache level " << lvl << " failed.\n";
-          break;  // Tiling failed, stop for this band
-        }
-        
-        if (newBand.empty()) break;
-
-        // Update current band to innermost loops of this level's tiling
-        getPerfectlyNestedLoops(currentBand, newBand.back());
-        if (currentBand.size() != n) break;  // Band structure changed
-      }
-
-    
       return WalkResult::advance();
     });
   }
@@ -167,6 +108,79 @@ struct AffineFullUnroll : impl::AffineFullUnrollBase<AffineFullUnroll> {
 
     llvm::errs() << "\n";
   }
+};
+
+
+struct AffineNDMultiLevelTilingPass
+    : public PassWrapper<AffineNDMultiLevelTilingPass,
+                         OperationPass<func::FuncOp>> {
+  
+  AffineNDMultiLevelTilingPass() {}
+    // Hard coding number of multi-cache levels to 3 for now 
+    int numLevels = 3;
+    // Hard code cache sizes for L1, L2, L3 cache
+    std::vector<uint64_t> cacheBytes = {
+                  8ULL*1024*1024,    // L3: 8MB  
+                  1ULL*1024*1024,    // L2: 1MB
+                  128ULL*1024};      // L1: 128KB
+    uint64_t elemBytes = 4; 
+  
+
+  void runOnOperation() {
+    func::FuncOp func = getOperation();
+
+    std::vector<double> cacheElems(numLevels);
+    for (size_t lvl = 0; lvl < numLevels; ++lvl) {
+      cacheElems[lvl] = (double)cacheBytes[lvl] / (double)elemBytes;
+    }
+
+    getOperation()->walk([&](AffineForOp op) {
+      // tile size selection
+      SmallVector<AffineForOp, 8> origBand;
+      getPerfectlyNestedLoops(origBand, op);
+      
+      if (origBand.size() < 2) return;  // Need at least 2D for tiling
+      
+      size_t n = origBand.size();
+      
+      // Compute dimensional reuse γ once for this n-D band
+      SmallVector<double, 8> gamma = {1.0}; // hardcoded for now 
+      // = computeDimensionalReuse(origBand);
+      
+      // Current innermost band starts as original band
+      SmallVector<AffineForOp, 8> currentBand = origBand;
+      
+      // Apply tiling for each cache level, from outermost to innermost
+      for (size_t lvl = 0; lvl < numLevels; ++lvl) {
+        // Solve n-D model for this cache level
+        SmallVector<unsigned, 8> tileSizes =
+            solveTileSizesND(gamma, cacheElems[lvl]);
+
+        llvm::errs() << "Cache level " << lvl << " tile sizes: ";
+        for (unsigned ts : tileSizes) {
+          llvm::errs() << ts << " ";
+        }
+        llvm::errs() << "\n";
+        
+        // Ensure tile sizes match band dimensionality
+        tileSizes.resize(n, 32);  // pad with defaults if needed
+        
+        // Apply tiling to current innermost band
+        SmallVector<AffineForOp, 8> newBand;
+        if (failed(tilePerfectlyNested(currentBand, tileSizes, &newBand))) {
+          llvm::errs() << "Tiling for cache level " << lvl << " failed.\n";
+          break;  // Tiling failed, stop for this band
+        }
+        
+        if (newBand.empty()) break;
+
+        // Update current band to innermost loops of this level's tiling
+        getPerfectlyNestedLoops(currentBand, newBand.back());
+        if (currentBand.size() != n) break;  // Band structure changed
+      }
+      return;
+    }
+  );}
 };
 
 
