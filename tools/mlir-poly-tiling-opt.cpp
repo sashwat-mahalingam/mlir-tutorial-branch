@@ -9,8 +9,8 @@ int main(int argc, char **argv) {
   mlir::registerAllDialects(registry);
   mlir::registerAllPasses();
   
-  mlir::tutorial::registerAffinePasses();
+  mlir::polyTiling::registerAffinePasses();
 
   return mlir::asMainReturnCode(
-      mlir::MlirOptMain(argc, argv, "Tutorial Pass Driver", registry));
+      mlir::MlirOptMain(argc, argv, "MLIR Polynomial Tiling Pass Driver", registry));
 }

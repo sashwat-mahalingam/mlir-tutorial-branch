@@ -1,3 +1,7 @@
+
+// Citation -- CSE 583 Group 29: This code is not ours; we have pulled it from https://mlir.llvm.org/doxygen/RaiseMemrefDialect_8cpp_source.html manually due to library mismatch issues.
+
+
 //===- RaiseMemrefDialect.cpp - raise memref.store and load to affine ops -===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -30,7 +34,7 @@
 #include "lib/Transform/Affine/Passes.h.inc"
 
 namespace mlir {  
-namespace tutorial {
+namespace polyTiling {
 #define GEN_PASS_DEF_RAISETOAFFINE
 #include "lib/Transform/Affine/Passes.h.inc"
 #define DEBUG_TYPE "raise-to-affine"
@@ -143,7 +147,7 @@ computeAffineMapAndArgs(MLIRContext *ctx, ValueRange indices, AffineMap &map,
 }
 
 struct RaiseToAffine
-    : public tutorial::impl::RaiseToAffineBase<RaiseToAffine> {
+    : public polyTiling::impl::RaiseToAffineBase<RaiseToAffine> {
 
   void runOnOperation() override {
     auto *ctx = &getContext();
@@ -179,5 +183,5 @@ struct RaiseToAffine
   }
 };
 
-} // namespace tutorial
+} // namespace polyTiling
 } // namespace mlir

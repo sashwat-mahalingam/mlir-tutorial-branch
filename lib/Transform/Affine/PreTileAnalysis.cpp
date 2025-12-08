@@ -23,9 +23,9 @@
 
 
 namespace mlir {
-namespace tutorial {
+namespace polyTiling {
 
-#define GEN_PASS_DEF_AFFINEFULLUNROLL
+#define GEN_PASS_DEF_PRETILEANALYSIS
 #include "lib/Transform/Affine/Passes.h.inc"
 
 using mlir::affine::AffineForOp;
@@ -159,22 +159,10 @@ static void analyzeAffineBand(ArrayRef<AffineForOp> loopBand) {
 
 
 // A pass that manually walks the IR
-struct AffineFullUnroll : impl::AffineFullUnrollBase<AffineFullUnroll> {
-  using AffineFullUnrollBase::AffineFullUnrollBase;
+struct PreTileAnalysis : impl::PreTileAnalysisBase<PreTileAnalysis> {
+  using PreTileAnalysisBase::PreTileAnalysisBase;
 
   void runOnOperation() {
-
-    auto func = getOperation();
-
-    {
-      mlir::PassManager pm(func->getContext());
-      pm.addPass(createRaiseToAffine());
-      if (failed(pm.run(func))) {
-        signalPassFailure();
-        return;
-      }
-    }
-
     int nestId = 0;
     int loop_count = 0;
     getOperation()->walk([&](AffineForOp op) {
@@ -274,5 +262,5 @@ struct AffineFullUnroll : impl::AffineFullUnrollBase<AffineFullUnroll> {
 
 
 
-} // namespace tutorial
+} // namespace polyTiling
 } // namespace mlir

@@ -9,9 +9,9 @@ set (LIBS
     MLIRPass
 )
 
-add_llvm_executable(tutorial-opt tutorial-opt.cpp)
+add_llvm_executable(mlir-poly-tiling-opt mlir-poly-tiling-opt.cpp)
 
-llvm_update_compile_flags(tutorial-opt)
-target_link_libraries(tutorial-opt PRIVATE ${LIBS})
+llvm_update_compile_flags(mlir-poly-tiling-opt)
+target_link_libraries(mlir-poly-tiling-opt PRIVATE ${LIBS})
 
-mlir_check_all_link_libraries(tutorial-opt)
+mlir_check_all_link_libraries(mlir-poly-tiling-opt)

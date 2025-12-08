@@ -1,7 +1,8 @@
 $LIB_PREFIX/cgeist benchmarks/matmul.c -I $HOME/llvm-mlir-pgeist/lib/clang/18/include \
-    --function=matmul -S | $LIB_PREFIX/polygeist-opt --raise-scf-to-affine --polygeist-mem2reg -o benchmarks/matmul_affine.mlir
+    --function=matmul -S | $LIB_PREFIX/polygeist-opt --raise-scf-to-affine --polygeist-mem2reg -o benchmarks/matmul_affine_unraised.mlir
 
-./build-ninja/tools/tutorial-opt benchmarks/matmul_affine.mlir --affine-full-unroll
+./build-ninja/tools/mlir-poly-tiling-opt benchmarks/matmul_affine_unraised.mlir --raise-to-affine -o benchmarks/matmul_affine.mlir
+./build-ninja/tools/mlir-poly-tiling-opt benchmarks/matmul_affine.mlir --pre-tile-analysis -o benchmarks/matmul_affine.mlir
 
 # mlir-opt matmul_affine.mlir \
 #     --affine-loop-tile="tile-sizes=32,64,38" \

@@ -38,6 +38,12 @@ void matmul() {
                 C[i][j] = C[i][j] + A[i][k] * B[k][j];
         }
     }
+    
+    for (i = 0; i < 32; i++) {
+        for (j = 0; j < 8; j++) {
+            A[i*i][j*j] = A[i*i][j*j] + 1;
+        }
+    }
 }
 int main()
 {

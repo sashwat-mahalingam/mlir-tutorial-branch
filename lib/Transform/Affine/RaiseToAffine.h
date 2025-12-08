@@ -4,12 +4,12 @@
 #include "mlir/Pass/Pass.h"
 
 namespace mlir {
-namespace tutorial {
+namespace polyTiling {
 
 #define GEN_PASS_DECL_RAISETOAFFINE
 #include "lib/Transform/Affine/Passes.h.inc"
 
-}  // namespace tutorial
+}  // namespace polyTiling
 }  // namespace mlir
 
 #endif  // LIB_TRANSFORM_AFFINE_RAISE_TO_AFFINE_H_

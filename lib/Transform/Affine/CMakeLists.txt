@@ -1,7 +1,6 @@
 add_mlir_library(Project583Passes
     RaiseToAffine.cpp
-    AffineFullUnroll.cpp
-    AffineFullUnrollPatternRewrite.cpp 
+    PreTileAnalysis.cpp
 
     ${PROJECT_SOURCE_DIR}/lib/Transform/Affine/
     ADDITIONAL_HEADER_DIRS

@@ -3,18 +3,10 @@
 
 include "mlir/Pass/PassBase.td"
 
-def AffineFullUnroll : Pass<"affine-full-unroll"> {
-  let summary = "Fully unroll all affine loops";
+def PreTileAnalysis : Pass<"pre-tile-analysis"> {
+  let summary = "Analyze permutability, reuse factors, memory footprint, and heuristics needed for polynomial tile size selection";
   let description = [{
-    Fully unroll all affine loops.
-  }];
-  let dependentDialects = ["mlir::affine::AffineDialect"];
-}
-
-def AffineFullUnrollPatternRewrite : Pass<"affine-full-unroll-rewrite"> {
-  let summary = "Fully unroll all affine loops using the pattern rewrite engine";
-  let description = [{
-    Fully unroll all affine loops using the pattern rewrite engine.
+    Analyze permutability, reuse factors, memory footprint, and heuristics needed for polynomial tile size selection.
   }];
   let dependentDialects = ["mlir::affine::AffineDialect"];
 }
