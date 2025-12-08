@@ -18,9 +18,8 @@
 
 #include "mlir/Pass/PassManager.h"       // actually correct
 #include "mlir/Dialect/Affine/Passes.h"  // for createAffineLoopConvertPass
-
-
-
+#include "lib/Transform/Affine/Passes.h.inc"
+#include "lib/Transform/Affine/RaiseToAffine.h"
 
 
 namespace mlir {
@@ -120,6 +119,9 @@ static void analyzeAffineBand(ArrayRef<AffineForOp> loopBand) {
     AffineMap map = loadOp
         ? loadOp.getAffineMap()
         : storeOp.getAffineMap();
+    
+    Value memRef = loadOp ? loadOp.getOperand(loadOp.getMemRefOperandIndex()) : storeOp.getOperand(storeOp.getMemRefOperandIndex());
+    llvm::errs() << "  MemRef: " << memRef << "\n";
     unsigned numIdx = map.getNumResults();
 
   
@@ -165,8 +167,8 @@ struct AffineFullUnroll : impl::AffineFullUnrollBase<AffineFullUnroll> {
     auto func = getOperation();
 
     {
-      mlir::PassManager pm(func.getContext());
-      pm.addPass(mlir::affine::createRaiseMemrefToAffine());
+      mlir::PassManager pm(func->getContext());
+      pm.addPass(createRaiseToAffine());
       if (failed(pm.run(func))) {
         signalPassFailure();
         return;

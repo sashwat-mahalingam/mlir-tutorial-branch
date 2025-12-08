@@ -3,7 +3,7 @@
 
 #include "lib/Transform/Affine/AffineFullUnroll.h"
 #include "lib/Transform/Affine/AffineFullUnrollPatternRewrite.h"
-#include "lib/Transform/Affine/RaiseToAffinePass.h" // <-- add thi
+#include "lib/Transform/Affine/RaiseToAffine.h" // <-- add this
 
 namespace mlir {
 namespace tutorial {

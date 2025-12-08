@@ -24,19 +24,19 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 
-namespace mlir {
-namespace affine {
-#define GEN_PASS_DEF_RAISEMEMREFDIALECT
-#include "mlir/Dialect/Affine/Passes.h.inc"
-} // namespace affine
-} // namespace mlir
 
-#define DEBUG_TYPE "raise-memref-to-affine"
+#include "mlir/Pass/PassManager.h"       // actually correct
+#include "mlir/Dialect/Affine/Passes.h"  // for createAffineLoopConvertPass
+#include "lib/Transform/Affine/Passes.h.inc"
+
+namespace mlir {  
+namespace tutorial {
+#define GEN_PASS_DEF_RAISETOAFFINE
+#include "lib/Transform/Affine/Passes.h.inc"
+#define DEBUG_TYPE "raise-to-affine"
 
 using namespace mlir;
 using namespace mlir::affine;
-
-namespace {
 
 /// Find the index of the given value in the `dims` list,
 /// and append it if it was not already in the list. The
@@ -142,8 +142,8 @@ computeAffineMapAndArgs(MLIRContext *ctx, ValueRange indices, AffineMap &map,
   return success();
 }
 
-struct RaiseMemrefDialect
-    : public affine::impl::RaiseMemrefDialectBase<RaiseMemrefDialect> {
+struct RaiseToAffine
+    : public tutorial::impl::RaiseToAffineBase<RaiseToAffine> {
 
   void runOnOperation() override {
     auto *ctx = &getContext();
@@ -179,10 +179,5 @@ struct RaiseMemrefDialect
   }
 };
 
-} // namespace
-
-std::unique_ptr<OperationPass<func::FuncOp>>
-
-mlir::affine::createRaiseMemrefToAffine() {
-  return std::make_unique<RaiseMemrefDialect>();
-}
+} // namespace tutorial
+} // namespace mlir

@@ -1,5 +1,5 @@
-cgeist benchmarks/matmul.c -I /n/eecs583b/home/nbmellon/llvm-mlir-pgeist/lib/clang/18/include \
-    --function=matmul -S | polygeist-opt --raise-scf-to-affine --polygeist-mem2reg -o benchmarks/matmul_affine.mlir
+$LIB_PREFIX/cgeist benchmarks/matmul.c -I $HOME/llvm-mlir-pgeist/lib/clang/18/include \
+    --function=matmul -S | $LIB_PREFIX/polygeist-opt --raise-scf-to-affine --polygeist-mem2reg -o benchmarks/matmul_affine.mlir
 
 ./build-ninja/tools/tutorial-opt benchmarks/matmul_affine.mlir --affine-full-unroll
 
