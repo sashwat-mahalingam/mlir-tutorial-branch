@@ -1,5 +1,7 @@
-$LIB_PREFIX/cgeist benchmarks/matmul.c -I $HOME/llvm-mlir-pgeist/lib/clang/18/include \
-    --function=matmul -S | $LIB_PREFIX/polygeist-opt --raise-scf-to-affine --polygeist-mem2reg -o benchmarks/matmul_affine_unraised.mlir
+export PATH=$HOME/Polygeist/build/bin:$PATH
+
+cgeist benchmarks/matmul.c -I $HOME/llvm-mlir-pgeist/lib/clang/18/include \
+    --function=matmul -S | polygeist-opt --raise-scf-to-affine --polygeist-mem2reg -o benchmarks/matmul_affine_unraised.mlir
 
 ./build-ninja/tools/mlir-poly-tiling-opt benchmarks/matmul_affine_unraised.mlir --raise-to-affine -o benchmarks/matmul_affine.mlir
 ./build-ninja/tools/mlir-poly-tiling-opt benchmarks/matmul_affine.mlir --pre-tile-analysis -o benchmarks/matmul_affine.mlir

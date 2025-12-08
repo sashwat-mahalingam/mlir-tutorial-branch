@@ -16,5 +16,4 @@ cmake -G $BUILD_SYSTEM .. \
     -DBUILD_SHARED_LIBS="OFF" \
     -DCMAKE_BUILD_TYPE=Debug \
     -DLLVM_INCLUDE_DIRS=${HOME}/llvm-mlir-pgeist/include/llvm \
-    -DCMAKE_INSTALL_PREFIX=${HOME}/mlir-custom-build \
-    -DMLIR_INCLUDE_DIRS=${HOME}/llvm-mlir-pgeist/include/mlir && cmake --build . --target mlir-poly-tiling-opt $1
+    -DMLIR_INCLUDE_DIRS=${HOME}/llvm-mlir-pgeist/include/mlir && cmake --build . --target mlir-poly-tiling-opt
