@@ -4,6 +4,13 @@ BENCHMARK_FILE=$1
 BENCHMARK_FUNCTION=$2
 BENCHMARK_OUTPUT_DIR=$3
 
+if [ -d $BENCHMARK_OUTPUT_DIR ]; then
+    rm -rf $BENCHMARK_OUTPUT_DIR;
+fi
+
+# recursively create the directory
+mkdir -p $BENCHMARK_OUTPUT_DIR;
+
 for option in 1 2; do
     if [ $option -eq 1 ]; then
         setting="_func";

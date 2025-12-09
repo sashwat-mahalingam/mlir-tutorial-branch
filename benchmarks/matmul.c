@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <time.h>
 
 #define M 1024
 #define N 1024
@@ -44,5 +45,10 @@ int main()
     int i, j, k;
 
     init_array();
+    clock_t start = clock();
+
     matmul();
+    clock_t end = clock();
+    double time_taken = ((double) (end - start)) / CLOCKS_PER_SEC;
+    printf("%f\n", time_taken);
 }
