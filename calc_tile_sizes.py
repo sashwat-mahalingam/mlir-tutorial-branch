@@ -87,11 +87,22 @@ def calc_tile_sizes(pre_tile_analysis_file, cache_sizes):
             file.write('export TILE_LEVEL_0_' + str(i) + '=' + str(lvl_0_tile_sizes[i]) + '\n')
 
     # need to calculate the next level tile sizes
+    # for each successive level, we want to preserve the reuse factors. so,
+    # if each dimension of the previous level's tile volume iterates by the same amount, this is achieved.
+    # Hence, (smaller cache size) * (iter amount) ^ (num bands) = (larger cache size)
+    # then, the new volume has length = prev level length * (iter amount), etc. We give the tile sizes as iter amt, as tiling will scale this automatically due to strides of previous levels.
+    num_bands = len(lvl_0_tile_sizes)
+    for i in range(1, len(cache_sizes)):
+        iter_amount = (cache_sizes[i] / cache_sizes[i-1]) ** (1 / num_bands)
+        # write to file
+        with open(os.path.join(os.path.dirname(pre_tile_analysis_file), 'tile_size_env_vars.sh'), 'a') as file:
+            for j in range(num_bands):
+                file.write('export TILE_LEVEL_' + str(i) + '_' + str(j) + '=' + str(int(iter_amount)) + '\n')
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--pre_tile_analysis_file', type=str)
-    parser.add_argument('--cache_sizes', type=int, nargs='+', help='cache sizes in bytes')
+    parser.add_argument('--cache_sizes', type=str, help='cache sizes in bytes, comma separated')
     args = parser.parse_args()
-    calc_tile_sizes(args.pre_tile_analysis_file, args.cache_sizes)
+    calc_tile_sizes(args.pre_tile_analysis_file, [int(size) for size in args.cache_sizes.split(',')])
