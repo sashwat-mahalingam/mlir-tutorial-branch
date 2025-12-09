@@ -71,7 +71,7 @@ namespace mlir {
                         } 
                         if (lvl >= (size_t)numLevels) return true;
 
-                        llvm::errs() << "Enter level " << lvl << "\n";
+                        // llvm::errs() << "Enter level " << lvl << "\n";
 
                         // Solve n-D model for this cache level using only the active
                         // dimensions (length of gamma should match n for the band).
@@ -83,15 +83,15 @@ namespace mlir {
                         SmallVector<AffineForOp, 8> truncBands;
                         for (size_t i = 0; i < bandsToTile; ++i)
                             truncBands.push_back(currentBand[i]);
-                        llvm::errs() << "Truncated band size: " << truncBands.size() << "\n";
+                        // llvm::errs() << "Truncated band size: " << truncBands.size() << "\n";
 
                         // Ensure tile sizes match band dimensionality; pad with a small default
                         // (avoid zeros, which make tiling invalid).
-                        // unsigned defaultTileSize = tileSizes.front();
-                        // tileSizes.resize(currentBand.size(), defaultTileSize);
-                        llvm::errs() << "Resized tile sizes: ";
-                        for (unsigned ts : tileSizes) llvm::errs() << ts << " ";
-                        llvm::errs() << "\n";
+                        // tileSizes.resize(currentBand.size(), 32);
+
+                        // llvm::errs() << "Resized tile sizes: ";
+                        // for (unsigned ts : tileSizes) llvm::errs() << ts << " ";
+                        // llvm::errs() << "\n";
 
                         SmallVector<AffineForOp, 8> newBand;
                         if (failed(tilePerfectlyNested(truncBands, tileSizes, &newBand))) {
@@ -100,25 +100,9 @@ namespace mlir {
                         }
 
                         if (newBand.empty()) return true;
-                        llvm::errs() << "Size of new band" << newBand.size() << "\n";
+                        // llvm::errs() << "Size of new band: " << newBand.size() << "\n";
+                        llvm::errs() << "\n";
 
-                        // // Extract the perfectly nested loops from the tiled nest's innermost loop.
-                        // SmallVector<AffineForOp, 8> fullNested;
-                        
-                        // llvm::errs() << "Tiled band at level " << lvl << " has "
-                        //              << fullNested.size() << " loops.\n";
-                    
-
-                        // // Build the next band's loops: only include dimensions that were tiled
-                        // // (tileSizes[i] > 1). Keep the relative order.
-                        // SmallVector<AffineForOp, 8> nextBand;
-                        // for (size_t i = 0; i < tileSizes.size() && i < fullNested.size(); ++i) {
-                        //     if (tileSizes[i] > 1)
-                        //         nextBand.push_back(fullNested[i]);
-                        // }
-
-                        // // Recurse on the subset of dimensions that were tiled.
-                        // if (nextBand.empty()) return true;
                         return tileRec(newBand, lvl + 1, bandsToTile);
                     };
 
