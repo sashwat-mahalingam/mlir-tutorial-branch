@@ -21,7 +21,8 @@
 #include "lib/Transform/Affine/Passes.h.inc"
 #include "lib/Transform/Affine/RaiseToAffine.h"
 #include <set>
-
+#include <cstdlib>
+#include <fstream>
 
 namespace mlir {
 namespace polyTiling {
@@ -36,7 +37,7 @@ using mlir::ValueRange;
 
 
 /// Extract coefficient of IV `ivIndex` in affine expression `expr`.
-static int64_t getCoeff(AffineExpr expr, Value ivIndex, ValueRange mapOperands) {
+static float getCoeff(AffineExpr expr, Value ivIndex, ValueRange mapOperands) {
   if (auto dim = expr.dyn_cast<AffineDimExpr>()) {
     unsigned pos = dim.getPosition();
     Value operand = mapOperands[pos];
@@ -81,11 +82,17 @@ static std::vector<int64_t> getStrides(MemRefType mt) {
 static void analyzeAffineBand(ArrayRef<AffineForOp> loopBand) {
   if (loopBand.empty()) return;
 
-
   // The band is expected outer->inner. Collect IV order accordingly.
   SmallVector<Value, 8> ivs;
-  for (AffineForOp f : loopBand)
+  SmallVector<int64_t, 8> tileLBs;
+  SmallVector<int64_t, 8> tileUBs;
+  SmallVector<int64_t, 8> strides;
+  for (AffineForOp f : loopBand) {
     ivs.push_back(f.getInductionVar());
+    tileLBs.push_back(f.getConstantLowerBound());
+    tileUBs.push_back(f.getConstantUpperBound());
+    strides.push_back(f.getStep());
+  }
   unsigned n = ivs.size();
 
 
@@ -102,17 +109,19 @@ static void analyzeAffineBand(ArrayRef<AffineForOp> loopBand) {
   
   // print innermost size
 
+  std::vector<std::vector<std::vector<float>>> memoryFootprintPolynomialTerms;
+
+  std::vector<std::pair<Value, AffineMap>> uniqueMemRefs;
+
   innermost.walk([&](Operation *op) {
     // Only process affine.load / affine.store
     if (!isa<affine::AffineLoadOp>(op) &&
         !isa<affine::AffineStoreOp>(op)) {
-          llvm::errs() << "  op: " << op->getName() << "\n";
-          return; //WalkResult::advance();
+//          llvm::errs() << "  op: " << op->getName() << "\n";
+          return WalkResult::advance();
     }
 
     // print that we have an affine load or store
-    llvm::errs() << "  Affine load or store\n";
-
   
     // Must declare loadOp / storeOp BEFORE using them
     auto loadOp  = dyn_cast<affine::AffineLoadOp>(op);
@@ -124,24 +133,14 @@ static void analyzeAffineBand(ArrayRef<AffineForOp> loopBand) {
         ? loadOp.getMemRefType()
         : storeOp.getMemRefType();
   
-    auto strides = getStrides(mt);
   
     // Access map
     AffineMap map = loadOp
         ? loadOp.getAffineMap()
         : storeOp.getAffineMap();
     
-    //Value memRef = loadOp ? loadOp.getOperand(loadOp.getMemRefOperandIndex()) : storeOp.getOperand(storeOp.getMemRefOperandIndex());
+    Value memRef = loadOp ? loadOp.getOperand(loadOp.getMemRefOperandIndex()) : storeOp.getOperand(storeOp.getMemRefOperandIndex());
 
-    //bool trackNewMemory = true;
-
-    // if (memrefValues.find(memRef) == memrefValues.end()) {
-    //   memrefValues.insert(memRef);
-    // } else {
-    //   trackNewMemory = false;
-    // }
-
-    //llvm::errs() << "  MemRef: " << memRef << "\n";
     unsigned numIdx = map.getNumResults();
     ValueRange mapOperands = ValueRange();
     AffineLoadOp loadOpCast;
@@ -155,22 +154,78 @@ static void analyzeAffineBand(ArrayRef<AffineForOp> loopBand) {
       storeOpCast = dyn_cast<affine::AffineStoreOp>(op);
       mapOperands = storeOpCast.getMapOperands();
     }
-  
-    // For each loop IV in the band
+
+    int64_t num_reuses = 1;
+    bool isReusing[n];
+
     for (unsigned k = 0; k < n; ++k) {
-      int64_t Lk = 0;
-      for (unsigned d = 0; d < numIdx; ++d) {
-        AffineExpr expr = map.getResult(d);
-        int64_t coeff = getCoeff(expr, ivs[k], mapOperands);
-        Lk += coeff * strides[d];
-      }
-  
-      if (Lk == 0)
-        raw[k] += 1.0;          // temporal reuse
-      
+      isReusing[k] = true;
     }
 
-    //return WalkResult::advance();
+    float termsForOp[numIdx][n];
+    int64_t numIterPts[numIdx];
+    // Initialize numIterPts to 0 (will accumulate sum, or set to 1 if no dependency)
+    for (unsigned d = 0; d < numIdx; ++d) {
+      numIterPts[d] = 0;
+    }
+
+    // For each loop IV in the band
+
+    // terms for polynomial: (sum of |coeff| * tile size for each index) * (...) for each expression, summed up
+    // num_iter_pts[d] = sum over k ceiling[abs(ub[k] - lb[k] + 1) / (abs(coeff) * strides[k])] if coeff > 0 else 1
+    // reuseFactor = product over num_iter_pts.
+    
+    for (unsigned k = 0; k < n; ++k) {
+      for (unsigned d = 0; d < numIdx; ++d) {
+        AffineExpr expr = map.getResult(d);
+        float coeff = getCoeff(expr, ivs[k], mapOperands);
+        
+        termsForOp[d][k] = std::abs(coeff);
+        if (std::abs(coeff) > 0 && strides[k] > 0) {
+           isReusing[k] = false;
+           numIterPts[d] += (int64_t) std::ceil(std::abs(tileUBs[k] - tileLBs[k]) / ((float) strides[k]));
+        }
+      }
+    }
+
+    // If numIterPts[d] is still 0 (no dependency on any loop), set to 1
+    for (unsigned d = 0; d < numIdx; ++d) {
+      if (numIterPts[d] == 0) {
+        numIterPts[d] = 1;
+      }
+    }
+
+    int64_t reuseFactor = 1;
+    for (unsigned d = 0; d < numIdx; ++d) {
+      reuseFactor *= numIterPts[d];
+    }
+
+    for (unsigned k = 0; k < n; ++k) {
+      if (isReusing[k]) {
+        raw[k] += reuseFactor;
+      }
+    }
+
+    bool foundMemRef = false;
+    for (unsigned i = 0; i < uniqueMemRefs.size(); ++i) {
+      if (uniqueMemRefs[i].first == memRef && uniqueMemRefs[i].second == map) {
+        foundMemRef = true;
+        break;
+      }
+    }
+
+    if (!foundMemRef) {
+      uniqueMemRefs.push_back(std::make_pair(memRef, map));
+      std::vector<std::vector<float>> newTerms(numIdx, std::vector<float>(n, 0.0));
+      for (unsigned d = 0; d < numIdx; ++d) {
+        for (unsigned k = 0; k < n; ++k) {
+          newTerms[d][k] = termsForOp[d][k];
+        }
+      }
+      memoryFootprintPolynomialTerms.push_back(newTerms);
+    }
+    
+    return WalkResult::advance();
   }); // end walk
 
   // Normalize raw -> gamma (largest dimension becomes 1.0)
@@ -178,14 +233,36 @@ static void analyzeAffineBand(ArrayRef<AffineForOp> loopBand) {
   for (double v : raw) if (v > maxv) maxv = v;
   if (maxv <= 0.0) maxv = 1.0; // avoid divide by zero, fallback equalization if desired
 
-  llvm::errs() << "  Affine band reuse (depth=" << n << ")\n";
-  for (unsigned i = 0; i < n; ++i) {
-    double gamma = raw[i] / maxv;
-    llvm::errs() << "    loop " << i << " raw=" << raw[i] << " gamma=" << gamma << "\n";
-  }
-  llvm::errs() << "----------------------------------------\n";
-}
 
+  // get environment variable on what txt file to write to
+  const char* outputFileEnv = std::getenv("OUTPUT_FILE");
+  if (!outputFileEnv) {
+    llvm::errs() << "Error: OUTPUT_FILE environment variable not set\n";
+    return;
+  }
+  std::string outputFile = outputFileEnv;
+  std::ofstream outputFileStream(outputFile);
+
+  // write out the raw values on top line 
+  for (unsigned i = 0; i < n; ++i) {
+    outputFileStream << raw[i] / maxv << " ";
+  }
+  outputFileStream << "\n";
+  
+  // write out the memory footprint polynomial terms, using a newline terminator after each j, and two newlines after each i
+  for (unsigned i = 0; i < memoryFootprintPolynomialTerms.size(); ++i) {
+    for (unsigned j = 0; j < memoryFootprintPolynomialTerms[i].size(); ++j) {
+      for (unsigned k = 0; k < n; ++k) {
+        outputFileStream << memoryFootprintPolynomialTerms[i][j][k] << " ";
+      }
+      outputFileStream << "\n";
+    }
+    outputFileStream << "\n\n";
+  }
+
+  // close the output file
+  outputFileStream.close();
+}
 
 // A pass that manually walks the IR
 struct PreTileAnalysis : impl::PreTileAnalysisBase<PreTileAnalysis> {
@@ -196,7 +273,7 @@ struct PreTileAnalysis : impl::PreTileAnalysisBase<PreTileAnalysis> {
     int loop_count = 0;
     getOperation()->walk([&](AffineForOp op) {
 
-      printLoopBounds(op, loop_count++);
+      //printLoopBounds(op, loop_count++);
       
       if (op->getParentOfType<AffineForOp>()) {
       return WalkResult::advance();  
@@ -206,7 +283,7 @@ struct PreTileAnalysis : impl::PreTileAnalysisBase<PreTileAnalysis> {
       getPerfectlyNestedLoops(loopBand, op);
       if (loopBand.size() >= 2) {
         llvm::errs() << "Nest #" << ++nestId << ":\n";
-        analyzeLoopPermutability(loopBand);
+        //analyzeLoopPermutability(loopBand);
 
         // <<-- NEW: compute affine reuse for this band
         // We inserted analyzeAffineBand here so it runs for each discovered band.

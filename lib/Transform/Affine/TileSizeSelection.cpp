@@ -3,7 +3,10 @@
 #include "mlir/Dialect/Affine/LoopUtils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassOptions.h"
 #include <numeric>
+#include <cstdlib>
+#include <string>
 
 namespace mlir {
     namespace polyTiling {
@@ -14,26 +17,37 @@ namespace mlir {
         using namespace mlir;
         using namespace mlir::affine;
 
-        struct TileSizeSelection
+        struct TileSizeSelection 
             : impl::TileSizeSelectionBase<TileSizeSelection> {
-        
-            // AffineNDMultiLevelTilingPass() {}
 
             void runOnOperation() {
+                // get num levels from environment
+                const char* numLevelsEnv = std::getenv("NUM_TILE_LEVELS");
+                const char* numBandsEnv = std::getenv("NUM_BANDS");
+                if (!numLevelsEnv || !numBandsEnv) {
+                    llvm::errs() << "Error: NUM_TILE_LEVELS or NUM_BANDS environment variables not set\n";
+                    return;
+                }
+                std::string numLevelsStr = numLevelsEnv;
+                std::string numBandsStr = numBandsEnv;
+                int numLevels = std::stoi(numLevelsStr);
+                int numBands = std::stoi(numBandsStr);
                 
-                // Hard coding number of multi-cache levels to 3 for now 
-                int numLevels = 3;
-                // Hard code cache sizes for L1, L2, L3 cache
-                std::vector<uint64_t> cacheBytes = {
-                            8ULL*1024*1024,    // L3: 8MB  
-                            1ULL*1024*1024,    // L2: 1MB
-                            128ULL*1024};      // L1: 128KB
-                uint64_t elemBytes = 4; 
-
-                std::vector<double> cacheElems(numLevels);
-                // Fill cache element capacities for each level (0-based indices).
-                for (size_t lvl = 0; lvl < (size_t)numLevels; ++lvl) {
-                    cacheElems[lvl] = (double)cacheBytes[lvl] / (double)elemBytes;
+                std::vector<std::vector<int64_t>> tileLevels;
+                for (unsigned i = 0; i < numLevels; ++i) {
+                    std::vector<int64_t> tileLevel;
+                    for (unsigned j = 0; j < numBands; ++j) {
+                        std::string envVarName = "TILE_LEVEL_" + std::to_string(i) + "_" + std::to_string(j);
+                        const char* levelijEnv = std::getenv(envVarName.c_str());
+                        if (!levelijEnv) {
+                            llvm::errs() << "Error: Environment variable " << envVarName << " not set\n";
+                            return;
+                        }
+                        std::string levelijStr = levelijEnv;
+                        int64_t tileijSize = std::stoi(levelijStr);
+                        tileLevel.push_back(tileijSize);
+                    }
+                    tileLevels.push_back(tileLevel);
                 }
 
                 Operation *op = getOperation();
@@ -44,7 +58,6 @@ namespace mlir {
                     // ensures we only start recursive tiling once per outer band.
                     if (rootLoop.getOperation()->getParentOfType<AffineForOp>())
                         return;
-                    llvm::errs() << "Start \n";
 
                     // Compute the perfectly nested loop band starting at this walk entry.
                     SmallVector<AffineForOp, 8> origBand;
@@ -54,7 +67,6 @@ namespace mlir {
 
                     size_t n = origBand.size();
                     // print n
-                    llvm::errs() << "Processing band of dimensionality n = " << n << "\n";
 
                     // Compute dimensional reuse γ once for this n-D band.
                     // Hardcode a neutral reuse pattern (0.5) of length n for now.
@@ -75,23 +87,23 @@ namespace mlir {
 
                         // Solve n-D model for this cache level using only the active
                         // dimensions (length of gamma should match n for the band).
-                        SmallVector<unsigned, 8> tileSizes = solveTileSizesND(gamma, cacheElems[lvl]);
-                        llvm::errs() << "Cache level " << lvl << " tile sizes: ";
+                        SmallVector<unsigned, 8> tileSizes;
+
+                        if (numBands < bandsToTile) {
+                            llvm::errs() << "Not enough band values given to tile, return " << numBands << " < " << bandsToTile << "\n";
+                            return false;
+                        }
+
+                        for (unsigned j = numBands - bandsToTile; j < numBands; ++j) {
+                            tileSizes.push_back((unsigned) tileLevels[lvl][j]);
+                        }
+
                         for (unsigned ts : tileSizes) llvm::errs() << ts << " ";
                         llvm::errs() << "\n";
 
                         SmallVector<AffineForOp, 8> truncBands;
                         for (size_t i = 0; i < bandsToTile; ++i)
                             truncBands.push_back(currentBand[i]);
-                        // llvm::errs() << "Truncated band size: " << truncBands.size() << "\n";
-
-                        // Ensure tile sizes match band dimensionality; pad with a small default
-                        // (avoid zeros, which make tiling invalid).
-                        // tileSizes.resize(currentBand.size(), 32);
-
-                        // llvm::errs() << "Resized tile sizes: ";
-                        // for (unsigned ts : tileSizes) llvm::errs() << ts << " ";
-                        // llvm::errs() << "\n";
 
                         SmallVector<AffineForOp, 8> newBand;
                         if (failed(tilePerfectlyNested(truncBands, tileSizes, &newBand))) {
@@ -100,7 +112,6 @@ namespace mlir {
                         }
 
                         if (newBand.empty()) return true;
-                        // llvm::errs() << "Size of new band: " << newBand.size() << "\n";
                         llvm::errs() << "\n";
 
                         return tileRec(newBand, lvl + 1, bandsToTile);
@@ -113,32 +124,6 @@ namespace mlir {
                     return;
                 });
             }
-            
-            /// Solve n-D reuse model: sum_{i≠j} (alpha*gamma_i)^2 * (alpha*gamma_j)^2 = C
-            /// Returns tile sizes t_i = alpha * gamma_i for given cache capacity C.
-            static SmallVector<unsigned, 8>
-            solveTileSizesND(ArrayRef<double> gamma, double numElementsInCache) {
-                size_t n = gamma.size();
-                double sum_pairwise = 0.0;
-                
-                // Compute sum_{i≠j} gamma_i * gamma_j
-                for (size_t i = 0; i < n; ++i) {
-                    for (size_t j = 0; j < n; ++j) {
-                    if (i != j) {
-                        sum_pairwise += gamma[i] * gamma[j];
-                    }
-                    }
-                }
-                
-                double alpha2 = (sum_pairwise > 0.0) ? numElementsInCache / sum_pairwise : 1.0;
-                double alpha = std::sqrt(std::max(alpha2, 1.0));
-                
-                SmallVector<unsigned, 8> tiles(n);
-                for (size_t i = 0; i < n; ++i) {
-                    tiles[i] = std::max<unsigned>(1, (unsigned)std::floor(alpha * gamma[i]));
-                }
-                return tiles;
-            };
         };
     };
 };

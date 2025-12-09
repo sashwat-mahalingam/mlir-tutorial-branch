@@ -10,13 +10,21 @@ BENCHMARK_C_FILE="benchmarks/$1.c"
 BENCHMARK_FUNCTION="kernel"
 BENCHMARK_EXP_DIR="experiments/$1"
 NUM_TRIALS=$2
+CACHE_SIZES=$3
 
-for tile_size in ${@:3};
+echo "--------------------------------";
+echo "Optimal tiling strategy";
+./compile_analyze.sh  ${BENCHMARK_C_FILE} ${BENCHMARK_FUNCTION} ${BENCHMARK_EXP_DIR} $CACHE_SIZES   > /dev/null 2>&1;
+./tile_postproc_ours.sh ${BENCHMARK_EXP_DIR}
+./profile.sh ${BENCHMARK_EXP_DIR} $NUM_TRIALS
+echo "     ";
+echo "--------------------------------";
+
+for tile_size in ${@:4};
 do
     echo "--------------------------------";
     echo "Tile size: $tile_size";
     echo "    ";
-    ./compile_analyze.sh  ${BENCHMARK_C_FILE} ${BENCHMARK_FUNCTION} ${BENCHMARK_EXP_DIR} > /dev/null 2>&1;
     ./tile_postproc.sh ${BENCHMARK_EXP_DIR} $tile_size > /dev/null 2>&1;
     ./profile.sh ${BENCHMARK_EXP_DIR} $NUM_TRIALS
     echo "    ";

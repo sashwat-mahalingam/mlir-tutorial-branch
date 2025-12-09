@@ -27,7 +27,7 @@ ninja check-polygeist-opt
 ninja check-cgeist
 ```
 7. `ninja install`
-
+8. `pip install numpy` (or `apt install python3-numpy`)
 
 # Compiling/running MLIR-Poly-Tiling
 0. The above installation must be done in `$HOME` directory.

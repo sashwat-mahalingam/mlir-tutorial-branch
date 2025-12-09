@@ -3,6 +3,7 @@ export PATH=$HOME/Polygeist/build/bin:$PATH
 BENCHMARK_FILE=$1
 BENCHMARK_FUNCTION=$2
 BENCHMARK_OUTPUT_DIR=$3
+CACHE_SIZES=$4
 
 if [ -d $BENCHMARK_OUTPUT_DIR ]; then
     rm -rf $BENCHMARK_OUTPUT_DIR;
@@ -27,4 +28,6 @@ for option in 1 2; do
 
 done
 
-./build-ninja/tools/mlir-poly-tiling-opt $BENCHMARK_OUTPUT_DIR/raised_func.mlir --pre-tile-analysis -o $BENCHMARK_OUTPUT_DIR/pre_tile_analysis_func.mlir
+OUTPUT_FILE=$BENCHMARK_OUTPUT_DIR/pre_tile_analysis_func.txt ./build-ninja/tools/mlir-poly-tiling-opt $BENCHMARK_OUTPUT_DIR/raised_func.mlir --pre-tile-analysis;
+echo "done pre-tile analysis";
+python3 calc_tile_sizes.py --pre_tile_analysis_file $BENCHMARK_OUTPUT_DIR/pre_tile_analysis_func.txt --cache_sizes $CACHE_SIZES
