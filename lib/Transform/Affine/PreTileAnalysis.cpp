@@ -167,11 +167,7 @@ static void analyzeAffineBand(ArrayRef<AffineForOp> loopBand) {
   
       if (Lk == 0)
         raw[k] += 1.0;          // temporal reuse
-      // else if (std::abs(Lk) == 1)
-      //   raw[k] += 1.0;          // spatial stride-1 reuse
-  
-      // if (isStore)
-      //   raw[k] += 1.0;          // store bonus
+      
     }
 
     //return WalkResult::advance();
