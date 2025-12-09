@@ -98,8 +98,8 @@ namespace mlir {
                             tileSizes.push_back((unsigned) tileLevels[lvl][j]);
                         }
 
-                        for (unsigned ts : tileSizes) llvm::errs() << ts << " ";
-                        llvm::errs() << "\n";
+                        // for (unsigned ts : tileSizes) llvm::errs() << ts << " ";
+                        // llvm::errs() << "\n";
 
                         SmallVector<AffineForOp, 8> truncBands;
                         for (size_t i = 0; i < bandsToTile; ++i)
@@ -112,7 +112,7 @@ namespace mlir {
                         }
 
                         if (newBand.empty()) return true;
-                        llvm::errs() << "\n";
+                        // llvm::errs() << "\n";
 
                         return tileRec(newBand, lvl + 1, bandsToTile);
                     };
@@ -120,7 +120,7 @@ namespace mlir {
                     // Start recursion from the original band.
                     SmallVector<AffineForOp, 8> startBand = origBand;
                     tileRec(startBand, 0, n);
-                    llvm::errs() << "\n";
+                    // llvm::errs() << "\n";
                     return;
                 });
             }
