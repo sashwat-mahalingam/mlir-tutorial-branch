@@ -6,12 +6,12 @@
 # everything afterwards is a set of tile sizes to test out, e.g. "3,3,3" "4,4,4". 
 #Tile sizes must be comma separated and wrapped in quotes.
 
-BENCHMARK_C_FILE=$1
-BENCHMARK_FUNCTION=$2
-BENCHMARK_EXP_DIR=$3
-NUM_TRIALS=$4
+BENCHMARK_C_FILE="benchmarks/$1.c"
+BENCHMARK_FUNCTION="kernel"
+BENCHMARK_EXP_DIR="experiments/$1"
+NUM_TRIALS=$2
 
-for tile_size in ${@:5};
+for tile_size in ${@:3};
 do
     echo "--------------------------------";
     echo "Tile size: $tile_size";

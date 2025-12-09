@@ -33,4 +33,4 @@ ninja check-cgeist
 0. The above installation must be done in `$HOME` directory.
 1. Ensure that you are using the `clang` that you built with `llvm-mlir-pgeist` by running `export PATH=$HOME/llvm-mlir-pgeist/bin:$PATH`
 3. Run `opt-build.sh` to build the pass in `lib/Transform/Affine` and generate the `mlir-poly-tiling-opt` wrapper
-4. Run `run.sh` (Refer to passes in `lib/Transform/Affine`)
+4. Run `./sweep_over_tiles.sh matmul 5 "20,20,20" "20,20,30"` matmul is the name of the benchmark, next param is the number of reruns to time and two tile size lists

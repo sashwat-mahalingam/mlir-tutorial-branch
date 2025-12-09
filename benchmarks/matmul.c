@@ -31,7 +31,7 @@ void init_array()
     }
 }
 
-void matmul() {
+void kernel() {
     int i, j, k;
     for (i = 0; i < M; i++) {
         for (j = 0; j < P; j++) {
@@ -47,7 +47,7 @@ int main()
     init_array();
     clock_t start = clock();
 
-    matmul();
+    kernel();
     clock_t end = clock();
     double time_taken = ((double) (end - start)) / CLOCKS_PER_SEC;
     printf("%f\n", time_taken);
