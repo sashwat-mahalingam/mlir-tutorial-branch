@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <time.h>
 
-#define M 2048
-#define N 2048
-#define P 2048
+#define M 1024
+#define N 1024
+#define P 1024
 float A[M][N];
 float B[N][P];
 float C[M][P];
