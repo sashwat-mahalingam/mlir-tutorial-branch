@@ -31,13 +31,14 @@ namespace mlir {
                 uint64_t elemBytes = 4; 
 
                 std::vector<double> cacheElems(numLevels);
-                for (size_t lvl = 0; lvl < numLevels; ++lvl) {
+                for (size_t lvl = 1; lvl <= numLevels; ++lvl) {
                 cacheElems[lvl] = (double)cacheBytes[lvl] / (double)elemBytes;
                 }
 
-                //func::FuncOp func = getOperation();
+                // func::FuncOp func = getOperation();
+                Operation *op = getOperation();
 
-                func.walk([&](AffineForOp op) {
+                op->walk([&](AffineForOp op) {
                     // tile size selection
                     SmallVector<AffineForOp, 8> origBand;
                     getPerfectlyNestedLoops(origBand, op);
@@ -47,14 +48,26 @@ namespace mlir {
                     size_t n = origBand.size();
                     
                     // Compute dimensional reuse γ once for this n-D band
-                    SmallVector<double, 8> gamma = {1.0}; // hardcoded for now 
+                    SmallVector<double, 8> gamma = {0.5, 0.5, 1.0}; // hardcoded for now 
                     // = computeDimensionalReuse(origBand);
                     
                     // Current innermost band starts as original band
                     SmallVector<AffineForOp, 8> currentBand = origBand;
+
+                    // print the current band loops (print constant upper bounds when available)
+                    llvm::errs() << "Original band loops: ";
+                    for (AffineForOp loop : currentBand) {
+                        if (loop.hasConstantUpperBound()) {
+                            // getConstantUpperBound() returns an int64_t
+                            llvm::errs() << static_cast<double>(loop.getConstantUpperBound()) << " ";
+                        } else {
+                            llvm::errs() << "? ";
+                        }
+                    }
+                    llvm::errs() << "\n";
                     
                     // Apply tiling for each cache level, from outermost to innermost
-                    for (size_t lvl = 0; lvl < numLevels; ++lvl) {
+                    for (size_t lvl = 1; lvl <= numLevels; ++lvl) {
                         // Solve n-D model for this cache level
                         SmallVector<unsigned, 8> tileSizes =
                             solveTileSizesND(gamma, cacheElems[lvl]);
@@ -66,7 +79,7 @@ namespace mlir {
                         llvm::errs() << "\n";
                         
                         // Ensure tile sizes match band dimensionality
-                        tileSizes.resize(n, 32);  // pad with defaults if needed
+                        tileSizes.resize(n, 0);  // pad with defaults if needed
                         
                         // Apply tiling to current innermost band
                         SmallVector<AffineForOp, 8> newBand;
