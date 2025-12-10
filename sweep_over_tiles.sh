@@ -10,31 +10,28 @@ BENCHMARK_FUNCTION="kernel"
 BENCHMARK_EXP_DIR="experiments/$1"
 NUM_TRIALS=$2
 CACHE_SIZES=$3
-DISABLE_OPTIMAL_TILING=${4:-0}
 
-if [ $DISABLE_OPTIMAL_TILING -eq 0 ]; then
-    ./compile_analyze.sh  ${BENCHMARK_C_FILE} ${BENCHMARK_FUNCTION} ${BENCHMARK_EXP_DIR} $CACHE_SIZES > /dev/null 2>&1;
+./compile_analyze.sh  ${BENCHMARK_C_FILE} ${BENCHMARK_FUNCTION} ${BENCHMARK_EXP_DIR} $CACHE_SIZES > /dev/null 2>&1;
 
-    source ${BENCHMARK_EXP_DIR}/tile_size_env_vars.sh
-    numLevels=$NUM_TILE_LEVELS
+source ${BENCHMARK_EXP_DIR}/tile_size_env_vars.sh
+numLevels=$NUM_TILE_LEVELS
 
-    echo "Optimal tiling strategy, with $numLevels levels";
-    tail +2 ${BENCHMARK_EXP_DIR}/tile_size_env_vars.sh;
-    for lvls in $(seq 1 $numLevels);
-    do    
-        echo "--------------------------------";
-        echo "Num levels: $lvls";
-        echo "   ";
-        echo "   ";
-        export NUM_TILE_LEVELS=$lvls
-        ./tile_postproc_ours.sh ${BENCHMARK_EXP_DIR}
-        ./profile.sh ${BENCHMARK_EXP_DIR} $NUM_TRIALS
-        echo "     ";
-        echo "--------------------------------";
-    done
-fi
+echo "Optimal tiling strategy, with $numLevels levels";
+tail +2 ${BENCHMARK_EXP_DIR}/tile_size_env_vars.sh;
+for lvls in $(seq 1 $numLevels);
+do    
+    echo "--------------------------------";
+    echo "Num levels: $lvls";
+    echo "   ";
+    echo "   ";
+    export NUM_TILE_LEVELS=$lvls
+    ./tile_postproc_ours.sh ${BENCHMARK_EXP_DIR}
+    ./profile.sh ${BENCHMARK_EXP_DIR} $NUM_TRIALS
+    echo "     ";
+    echo "--------------------------------";
+done
 
-for tile_size in ${@:5};
+for tile_size in ${@:4};
 do
     echo "--------------------------------";
     echo "Tile size: $tile_size";
