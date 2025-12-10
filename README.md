@@ -29,8 +29,36 @@ ninja check-cgeist
 7. `ninja install`
 8. `pip install numpy` (or `apt install python3-numpy`)
 
-# Compiling/running MLIR-Poly-Tiling
+# Compiling MLIR-Poly-Tiling
 0. The above installation must be done in `$HOME` directory.
 1. Ensure that you are using the `clang` that you built with `llvm-mlir-pgeist` by running `export PATH=$HOME/llvm-mlir-pgeist/bin:$PATH`
 3. Run `opt-build.sh` to build the pass in `lib/Transform/Affine` and generate the `mlir-poly-tiling-opt` wrapper
-4. Run `./sweep_over_tiles.sh matmul 5 "20,20,20" "20,20,30"` matmul is the name of the benchmark, next param is the number of reruns to time and two tile size lists
+
+# Sweeping all configs at once
+To benchmark sweep over using 1st level through Nth level tiling with OUR strategy, AND one or more **1-level** loop tiling baselines, run: `./sweep_over_tiles.sh benchmark_name T "C1,C2,...CN" "tsizes1" "tsizes2" ... "tsizesM"` 
+- `benchmark_name` is the name of the benchmark. We used `matmul` in our paper.
+- `T` is the number of trials to run per configuration.
+- `C1...CN` represents cache sizes for L1, L2, L3, ... LN, in BYTES.
+- EACH `"tsizesi", where i = 1...M,` is a specific configuration of tile sizes, ordered from the outermost to innermost loop nest, that you want to manually test as a baseline. It must be comma-separated, and surrounded by the double quotes (e.g. `"20,30,40"` can be `"tsizes1"`, and it'll tile the outermost loop as 20, second loop nest as 30, innermost loop nest as 40).
+
+**Expected Output:** In stdout, you will see the timing results for using 1 level of caching, 2 levels, .. N levels with our method. You will also see single-level tiling profiling results for each of the manually inputted tile size baselines `"tsizes1" ... "tsizesM"`. In `experiments/<benchmark_name>`, you will see the tiling artifacts (MLIR, LLVM IR, final executable) only for the last baseline that was run. Please see the next two sections for running individual tiling experiments so the desired artifacts can be seen.
+
+# Running our method only
+To run only our method on K levels of caching (note this doesn't test 1-level, 2-level, ... K-level separately, it only tests K-level directly), run the following steps. The format of `C1..CK` is each level's cache size, in bytes. `benchmark_name` is the benchmark used, for us it is `matmul`. Define `EXPERIMENT_DIR` as a desired `EXPERIMENT_DIR` you want to save artifacts to.
+
+1. `./compile_analyze.sh benchmarks/<benchmark_name>.c kernel <EXPERIMENT_DIR> "C1,C2,...CK" > /dev/null 2>&1`
+2. `source <EXPERIMENT_DIR>/tile_size_env_vars.sh`
+3. `./tile_postproc_ours.sh <EXPERIMENT_DIR>`
+4. `./profile.sh <EXPERIMENT_DIR> T`
+
+Timings for just the K-level caching will be outputted, and the desired artifacts (namely, a `tiled_file.mlir` with the tiling applied) will be under EXPERIMENT_DIR.
+
+# Running on baselines
+
+To run only a baseline of fixed tile sizes pre-determined, run the following steps. `benchmark_name` is the benchmark used, for us it is `matmul`. Define `EXPERIMENT_DIR` as a desired `EXPERIMENT_DIR` you want to save artifacts to.
+
+1. `./compile_analyze.sh benchmarks/<benchmark_name>.c kernel <EXPERIMENT_DIR> "32000" > /dev/null 2>&1`
+3. `./tile_postproc_baseline.sh <EXPERIMENT_DIR> "outermostLoopNestTileSize, nextLoopNestTileSize, ..., innerMostLoopNestTileSize" > /dev/null 2>&1;`
+4. `./profile.sh <EXPERIMENT_DIR> <Number of trials>`
+
+Timings for just the baseline will be outputted, and the desired artifacts (namely, a `tiled_file.mlir` with the tiling applied) will be under EXPERIMENT_DIR.
