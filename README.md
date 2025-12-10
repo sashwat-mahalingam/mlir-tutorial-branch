@@ -1,6 +1,6 @@
 # Setting up dependencies
 1. Ensure you have prerequisites required FOR installing LLVM, along with ninja build tools.
-2. `git clone --recursive https://github.com/llvm/Polygeist.git` in HOME directory.
+2. `git clone --recursive https://github.com/llvm/Polygeist.git` in your HOME directory.
 3. `cd Polygeist`, and do `mkdir build && cd build`
 4. Run the below:
 ```
