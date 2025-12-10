@@ -61,7 +61,7 @@ Timings for just the K-level caching will be outputted, and the desired artifact
 To run only a baseline of fixed tile sizes pre-determined, run the following steps. ONLY MODIFY the angled bracket arguments, and remove the angled brackets while doing so. `benchmark_name` is the benchmark used, for us it is `matmul`. Define `EXPERIMENT_DIR` as a desired `EXPERIMENT_DIR` you want to save artifacts to. `T` is number of trials desired.
 
 1. `./compile_analyze.sh benchmarks/<benchmark_name>.c kernel <EXPERIMENT_DIR> "32000" > /dev/null 2>&1`
-3. `./tile_postproc_baseline.sh <EXPERIMENT_DIR> "<outermostLoopNestTileSize, nextLoopNestTileSize, ..., innerMostLoopNestTileSize>" > /dev/null 2>&1;`. Keep the double quotes around the tile size list, remove the angled brackets.
+3. `./tile_postproc_baseline.sh <EXPERIMENT_DIR> "<outermostLoopNestTileSize, nextLoopNestTileSize, ..., innerMostLoopNestTileSize>" > /dev/null 2>&1`. Keep the double quotes around the tile size list, remove the angled brackets.
 4. `./profile.sh <EXPERIMENT_DIR> <T>`
 
 Timings for just the baseline will be outputted, and the desired artifacts (namely, a `tiled_file.mlir` with the tiling applied) will be under EXPERIMENT_DIR.
