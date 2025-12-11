@@ -30,7 +30,7 @@ ninja check-polygeist-opt
 ninja check-cgeist
 ```
 7. `ninja install`
-8. `pip install numpy` (or `apt install python3-numpy`)
+8. Ensure you can run `python3 -i`, and then `import numpy` within the Python terminal. (This requires `sudo apt install python3 && sudo apt install python3-pip && sudo apt install python3-numpy`)
 
 # Compiling MLIR-Poly-Tiling
 0. The above installation must be done in `$HOME` directory.
